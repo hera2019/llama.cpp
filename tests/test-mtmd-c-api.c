@@ -163,6 +163,34 @@ int main(void) {
         mtmd_input_chunks_free(out);
     }
 
+    // Short audio is rejected before the context is used.
+    {
+        const float samples[2] = { 0.25f, -0.25f };
+        for (size_t n = 0; n < 2; n++) {
+            for (int placeholder = 0; placeholder < 2; placeholder++) {
+                mtmd_bitmap * audio = mtmd_bitmap_init_from_audio(n, placeholder ? NULL : samples);
+                mtmd_input_chunks * out = mtmd_input_chunks_init();
+                const mtmd_bitmap * bitmaps[1] = { audio };
+                struct mtmd_input_text text = { "<__media__>", 11, false, false };
+                int32_t rc = mtmd_tokenize(NULL, out, &text, bitmaps, 1);
+                printf("tokenize %zu-sample audio (placeholder=%d) rc = %d (expect 2)\n", n, placeholder, rc);
+                if (rc != 2) {
+                    return 1;
+                }
+
+                struct mtmd_input_part part = { NULL, audio };
+                const mtmd_input_part * parts[1] = { &part };
+                rc = mtmd_tokenize_from_parts(NULL, out, parts, 1, false);
+                printf("tokenize part with %zu-sample audio (placeholder=%d) rc = %d (expect 2)\n", n, placeholder, rc);
+                if (rc != 2) {
+                    return 1;
+                }
+                mtmd_bitmap_free(audio);
+                mtmd_input_chunks_free(out);
+            }
+        }
+    }
+
     // Free the chunks
     mtmd_input_chunks_free(chunks);
 
