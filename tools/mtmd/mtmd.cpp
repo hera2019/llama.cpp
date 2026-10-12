@@ -1187,6 +1187,14 @@ std::vector<std::vector<const mtmd_bitmap *>> mtmd_group_mergeable_bitmaps(std::
     return output;
 }
 
+static bool mtmd_validate_audio_bitmap(const mtmd_bitmap * bitmap) {
+    if (bitmap->is_audio && bitmap->nx < 2) {
+        LOG_ERR("%s: audio input must contain at least 2 samples\n", __func__);
+        return false;
+    }
+    return true;
+}
+
 struct mtmd_tokenizer {
     const mtmd_context * ctx;
 
@@ -1644,8 +1652,7 @@ struct mtmd_tokenizer {
                 return 2;
             }
 
-            if (bitmap->nx == 0) {
-                LOG_ERR("%s: error: empty audio data\n", __func__);
+            if (!mtmd_validate_audio_bitmap(bitmap)) {
                 return 2;
             }
 
@@ -1876,6 +1883,11 @@ int32_t mtmd_tokenize(const mtmd_context * ctx,
             const mtmd_input_text * text,
             const mtmd_bitmap * const * bitmaps,
             size_t n_bitmaps) {
+    for (size_t i = 0; i < n_bitmaps; i++) {
+        if (!mtmd_validate_audio_bitmap(bitmaps[i])) {
+            return 2;
+        }
+    }
     try {
         mtmd_tokenizer tokenizer(ctx, text, bitmaps, n_bitmaps);
         return tokenizer.tokenize(output);
@@ -1898,6 +1910,9 @@ int32_t mtmd_tokenize_from_parts(const mtmd_context * ctx,
         if (parts[i]->text != nullptr && parts[i]->text->text == nullptr) {
             LOG_ERR("%s: part %zu has null text pointer\n", __func__, i);
             return 1;
+        }
+        if (parts[i]->bitmap != nullptr && !mtmd_validate_audio_bitmap(parts[i]->bitmap)) {
+            return 2;
         }
     }
     try {
